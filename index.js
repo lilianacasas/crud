@@ -3,7 +3,7 @@ const express = require("express");
 const app = express();
 app.use(express.json());
 
-const uri = "mongodb://root:Asde71.4@192.168.1.17:27018/";
+const uri = "mongodb+srv://limatica66:2m182ade4PE54k5b@cluster0.or8ep.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0 despliegue mongo db";
 const dbName = "dbSoftware";
 const collectionName = "users";
 const endPoint = "/user";
