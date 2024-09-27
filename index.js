@@ -1,60 +1,83 @@
 const { MongoClient } = require("mongodb");
 const express = require("express");
 const app = express();
-app.use(express.json());
+app.use(express.json()); // Permite que Express interprete JSON en las solicitudes
 
+// Configuración de la base de datos
 const uri = "mongodb+srv://limatica66:2m182ade4PE54k5b@cluster0.or8ep.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0 despliegue mongo db";
 const dbName = "dbSoftware";
 const collectionName = "users";
 const endPoint = "/user";
-//CRUD Create, Read, Update, Delete
 let col;
 
+// Conexión a la base de datos MongoDB
 async function db() {
-    const client = new MongoClient(uri);
-    await client.connect();
-    const db = client.db(dbName);
-    col = db.collection(collectionName);
+    try {
+        const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true });
+        await client.connect(); // Conecta al cliente MongoDB
+        const db = client.db(dbName); // Selecciona la base de datos
+        col = db.collection(collectionName); // Selecciona la colección 'users'
+        console.log("Conectado a la base de datos MongoDB");
+    } catch (error) {
+        console.error("Error conectando a la base de datos:", error);
+        process.exit(1); // Finaliza la ejecución si no puede conectarse
+    }
 }
 
-db().catch(console.error);
-app.get("/", async (req, res) => {
-    res.send("La api esta ejecutando");
+db(); // Conectar a la base de datos al inicio del servidor
+
+// Ruta de prueba para verificar que la API esté en funcionamiento
+app.get("/", (req, res) => {
+    res.send("La API está ejecutando");
 });
+
+// Obtener todos los usuarios
 app.get(endPoint, async (req, res) => {
     try {
-        const documents = await col.find().toArray();
-        res.json(documents);
+        const documents = await col.find().toArray(); // Obtiene todos los documentos de la colección
+        res.json(documents); // Responde con los documentos en formato JSON
     } catch (error) {
-        res.status(500).json({ error: "Error obteniendo datos" });
+        res.status(500).json({ error: "Error obteniendo datos" }); // En caso de error, responde con un error 500
     }
 });
+
+// Obtener un usuario por nombre
 app.get(endPoint + "/:name", async (req, res) => {
     try {
-        const query = { userName: req.params.name };
-        const document = await col.findOne(query);
-        res.json(document);
+        const query = { userName: req.params.name }; // Crea una consulta usando el nombre como parámetro
+        const document = await col.findOne(query); // Busca un documento que coincida con el nombre
+        if (document) {
+            res.json(document); // Responde con el documento en formato JSON
+        } else {
+            res.status(404).json({ error: "Usuario no encontrado" }); // En caso de no encontrar el usuario
+        }
     } catch (error) {
-        res.status(500).json({ error: "Error obteniendo datos por nombre" });
+        res.status(500).json({ error: "Error obteniendo datos por nombre" }); // En caso de error, responde con un error 500
     }
 });
+
+// Obtener usuarios por rol
 app.get(endPoint + "/role/:rol", async (req, res) => {
     try {
-        const query = { role: req.params.rol };
-        const documents = await col.find(query).toArray();
-        res.json(documents);
+        const query = { role: req.params.rol }; // Crea una consulta usando el rol como parámetro
+        const documents = await col.find(query).toArray(); // Busca todos los documentos que coincidan con el rol
+        res.json(documents); // Responde con los documentos en formato JSON
     } catch (error) {
-        res.status(500).json({ error: "Error obteniendo usuarios por rol" });
+        res.status(500).json({ error: "Error obteniendo usuarios por rol" }); // En caso de error, responde con un error 500
     }
 });
 
 // Crear usuario
 app.post(endPoint, async (req, res) => {
     try {
-        await col.insertOne(req.body);
-        res.status(201).json(req.body);
+        const newUser = req.body; // Obtiene los datos del nuevo usuario desde el cuerpo de la solicitud
+        if (!newUser.userName || !newUser.email) {
+            return res.status(400).json({ error: "El nombre de usuario y el correo son obligatorios" }); // Validación de campos
+        }
+        await col.insertOne(newUser); // Inserta un nuevo documento en la colección
+        res.status(201).json(newUser); // Responde con el documento creado en formato JSON
     } catch (error) {
-        res.status(500).json({ error: "Error creando usuario" });
+        res.status(500).json({ error: "Error creando usuario" }); // En caso de error, responde con un error 500
     }
 });
 
@@ -62,27 +85,32 @@ app.post(endPoint, async (req, res) => {
 app.put(endPoint + "/:name", async (req, res) => {
     try {
         const result = await col.updateMany(
-            { userName: req.params.name },
-            { $set: req.body }
+            { userName: req.params.name }, // Busca los documentos por nombre
+            { $set: req.body } // Actualiza el documento con los nuevos datos
         );
-        console.info(result);
-        res.json(req.body);
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado" }); // Si no se encuentra el usuario
+        }
+        res.json(req.body); // Responde con los nuevos datos en formato JSON
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Error actualizando usuario" });
+        res.status(500).json({ error: "Error actualizando usuario" }); // En caso de error, responde con un error 500
     }
 });
 
 // Eliminar usuario
 app.delete(endPoint + "/:name", async (req, res) => {
     try {
-        const result = await col.deleteMany({ userName: req.params.name });
-        res.json(result);
+        const result = await col.deleteMany({ userName: req.params.name }); // Elimina los documentos por nombre
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ error: "Usuario no encontrado" }); // Si no se encuentra el usuario
+        }
+        res.json({ message: "Usuario eliminado exitosamente" }); // Responde con un mensaje de éxito
     } catch (error) {
-        res.status(500).json({ error: "Error eliminando usuario" });
+        res.status(500).json({ error: "Error eliminando usuario" }); // En caso de error, responde con un error 500
     }
 });
 
+// Servidor escuchando en el puerto 3000
 app.listen(3000, () => {
     console.log("Servidor está corriendo en http://localhost:3000");
 });
